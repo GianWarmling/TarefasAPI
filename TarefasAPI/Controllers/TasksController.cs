@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using TarefasAPI.Data;
 using TarefasAPI.Models;
+using TarefasAPI.Responses;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -20,29 +21,33 @@ namespace TarefasAPI.Controllers
 
         // GET: api/<TasksController>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<TaskModel>>> GetAll()
+        public async Task<ActionResult> GetAll()
         {
-            return await _context.Tarefas.ToListAsync();
+            var tarefas = await _context.Tarefas.ToListAsync();
+            return Ok(ApiResponse<IEnumerable<TaskModel>>.Ok(tarefas, "Lista de tarefas carregada com sucesso"));
         }
 
         // GET api/<TasksController>/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<IEnumerable<TaskModel>>> GetById(int id)
+        public async Task<ActionResult> GetById(int id)
         {
-            var tarefa = await _context.Tarefas.FirstOrDefaultAsync(t => t.Id == id);
+            var tarefa = await _context.Tarefas.FindAsync(id);
             if (tarefa == null)
-                return BadRequest("Id não existe!");
+                return NotFound(ApiResponse<string>.Falha(tarefa, "Tarefa não encontrada!"));
             
-            return Ok(tarefa);
+            return Ok(ApiResponse<TaskModel>.Ok(tarefa, "Tarefa encontrada com sucesso!"));
         }
 
         // POST api/<TasksController>
         [HttpPost]
-        public async Task<ActionResult<IEnumerable<TaskModel>>> Create(TaskModel novaTarefa)
+        public async Task<ActionResult> Create(TaskModel novaTarefa)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<string>.Falha("Dados Inválidos!"));
+
             _context.Tarefas.Add(novaTarefa);
             await _context.SaveChangesAsync();
-            return Ok(new { mensagem = "Tarefa criada com sucesso!", novaTarefa });
+            return Ok(ApiResponse<TaskModel>.Ok(novaTarefa, "Tarefa criada com sucesso!"));
         }
 
         // PUT api/<TasksController>/5
@@ -52,32 +57,28 @@ namespace TarefasAPI.Controllers
             var tarefa = await _context.Tarefas.FindAsync(id);
 
             if (tarefa == null)
-            {
-                return BadRequest("Tarefa não encontrada!");
-            }
-
+                return NotFound(ApiResponse<string>.Falha("Tarefa não encontrada!"));
+            
             tarefa.Titulo = tarefaAtualizada.Titulo;
             tarefa.Descricao = tarefaAtualizada.Descricao;
             tarefa.Concluida = tarefaAtualizada.Concluida;
 
             await _context.SaveChangesAsync();
 
-            return Ok(new { mensagem = "Tarefa atualizada com sucesso!", tarefa });
+            return Ok(ApiResponse<TaskModel>.Ok(tarefa, "Tarefa atualizada com sucesso!"));
         }
 
         // DELETE api/<TasksController>/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var tarefa = await _context.Tarefas.FirstOrDefaultAsync(t => t.Id == id);
+            var tarefa = await _context.Tarefas.FindAsync(id);
             if (tarefa == null)
-            {
-                return BadRequest("Tarefa não existe!");
-            }
+                return NotFound(ApiResponse<string>.Falha("Tarefa não encontrada!"));
 
             _context.Tarefas.Remove(tarefa);
             await _context.SaveChangesAsync();  
-            return NoContent();
+            return Ok(ApiResponse<string>.Ok("Tarefa removida com sucesso!"));
         }
     }
 }
