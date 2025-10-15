@@ -1,11 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using TarefasAPI.Models;
-using Microsoft.EntityFrameworkCore;
 using TarefasAPI.Data;
+using TarefasAPI.Models;
+using BCrypt.Net;
 
 namespace TarefasAPI.Controllers
 {
@@ -29,6 +30,8 @@ namespace TarefasAPI.Controllers
             if (await _context.Users.AnyAsync(u => u.Username == user.Username))
                 return BadRequest(new { message = "Usuário já existe." });
 
+            // Hash da senha
+            user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
@@ -39,10 +42,9 @@ namespace TarefasAPI.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login(UserModel user)
         {
-            var usuario = await _context.Users
-                .FirstOrDefaultAsync(u => u.Username == user.Username && u.Password == user.Password);
+            var usuario = await _context.Users.FirstOrDefaultAsync(u => u.Username == user.Username);
 
-            if (usuario == null)
+            if (usuario == null || !BCrypt.Net.BCrypt.Verify(user.Password, usuario.Password))
                 return Unauthorized(new { message = "Usuário ou senha inválidos." });
 
             var token = GerarToken(usuario);
@@ -55,7 +57,7 @@ namespace TarefasAPI.Controllers
 
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Username),
+                new Claim(ClaimTypes.Name, user.Username),
                 new Claim("id", user.Id.ToString())
             };
 
@@ -65,7 +67,7 @@ namespace TarefasAPI.Controllers
                 issuer: _configuration["Jwt:Issuer"],
                 audience: _configuration["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddHours(2),
+                expires: DateTime.UtcNow.AddHours(2),
                 signingCredentials: creds
             );
 
