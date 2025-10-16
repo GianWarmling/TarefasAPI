@@ -48,7 +48,7 @@ namespace TarefasAPI.Controllers
                 return Unauthorized(new { message = "Usuário ou senha inválidos." });
 
             var token = GerarToken(usuario);
-            return Ok(new { token });
+            return Ok(token);
         }
 
         private string GerarToken(UserModel user)
